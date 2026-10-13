@@ -1,0 +1,16 @@
+{
+  "contract": "session-hub-config-v1",
+  "profiles": "auto",
+  "profileLabels": {
+    "default": "Lead"
+  },
+  "instances": {
+    "enabled": true,
+    "localLabel": "본사",
+    "remoteGroupLabel": "지사",
+    "syncRoot": "",
+    "remotes": {}
+  },
+  "skillsRoot": "",
+  "projectBoard": ""
+}

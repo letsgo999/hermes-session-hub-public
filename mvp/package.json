@@ -1,0 +1,14 @@
+{
+  "name": "hermes-session-hub-mvp",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview:render": "node --experimental-loader ./tests/sdk-loader.mjs ./tests/render_harness_preview.mjs",
+    "preview": "npm run preview:render && python run_preview.py",
+    "build": "python build.py",
+    "test:python": "python tests/run_python_tests.py",
+    "test:node": "node --experimental-loader ./tests/sdk-loader.mjs --test tests/*.test.mjs",
+    "test:frontend": "node --experimental-loader ./tests/sdk-loader.mjs --test tests/plugin_integration.test.mjs"
+  }
+}

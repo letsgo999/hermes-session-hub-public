@@ -1,0 +1,7 @@
+name: session-hub
+version: 0.7.0
+description: "Project-centered local execution hub for Hermes Desktop 0.21.x (verified on 0.21.7): auto-detected profiles, optional branch snapshots, read-only source adapters and an audited local registry."
+author: KAIEDU
+kind: standalone
+provides_tools: []
+provides_hooks: []

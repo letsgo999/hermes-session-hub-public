@@ -1,0 +1,10 @@
+{
+  "name": "session-hub",
+  "label": "Session Hub",
+  "description": "Project-centered execution hub with read-only Hermes/Kanban sources and an audited local registry.",
+  "version": "0.7.0",
+  "api": "plugin_api.py",
+  "tab": {
+    "hidden": true
+  }
+}

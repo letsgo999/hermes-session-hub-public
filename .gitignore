@@ -1,0 +1,58 @@
+# Python / test cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node/build outputs
+node_modules/
+dist/
+**/dist/
+.dist-previous*/
+.dist-staging/
+release/
+*.zip
+
+# Runtime state and generated evidence
+reports/
+spikes/
+**/evidence/
+*.log
+*.pid
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+*.bak
+*.tmp
+*.temp
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*credential*
+*credentials*
+*secret*
+*token*
+*cookie*
+auth.json
+
+# Machine-specific backups and preflight artifacts
+dashboard/autorun-backup/
+.preflight-*/
+NUL
+nul
+
+# Local reference snapshots and personal settings
+/docs-llms.txt
+session-hub.config.json
+ai-sessions.config.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

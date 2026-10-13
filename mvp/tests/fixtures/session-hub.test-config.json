@@ -1,0 +1,64 @@
+{
+  "contract": "session-hub-config-v1",
+  "hermesHome": "./.test-hermes-home-not-used",
+  "profiles": [
+    "default",
+    "ops",
+    "review",
+    "builder",
+    "search"
+  ],
+  "profileLabels": {
+    "default": "Lead",
+    "ops": "Ops",
+    "search": "Search",
+    "builder": "Dev",
+    "review": "Review"
+  },
+  "instances": {
+    "enabled": true,
+    "localLabel": "본사",
+    "remoteGroupLabel": "지사",
+    "syncRoot": "./.test-sync-root-not-used",
+    "remotes": {
+      "X": {
+        "label": "Branch X",
+        "ttlMinutes": 45
+      },
+      "Y": {
+        "label": "Branch Y",
+        "ttlMinutes": 720
+      },
+      "Z": {
+        "label": "Branch Z",
+        "ttlMinutes": 2880
+      }
+    }
+  },
+  "projects": [
+    {
+      "id": "alpha-site",
+      "name": "AlphaSite",
+      "goal": "Alpha site rebuild",
+      "aliases": [
+        "alpha site"
+      ]
+    },
+    {
+      "id": "beta-reports",
+      "name": "BetaReports",
+      "goal": "Weekly beta reports",
+      "aliases": [
+        "beta reports"
+      ]
+    },
+    {
+      "id": "gamma-automation",
+      "name": "GammaAutomation",
+      "goal": "Gamma automation runs",
+      "aliases": [
+        "gamma automation"
+      ]
+    }
+  ]
+}
