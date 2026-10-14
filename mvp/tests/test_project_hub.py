@@ -135,6 +135,16 @@ class ProjectHubFixture(unittest.TestCase):
         self.assertEqual(hub.portfolio()["contract"], "project-hub-v1")
         self.assertEqual(derive_projects([{"project_id": "../", "workspace_path": "C:\\"}]), ())
 
+    def test_empty_kanban_gives_an_empty_portfolio_not_an_error(self) -> None:
+        empty = self.root / "empty-kanban.db"
+        conn = sqlite3.connect(empty)
+        conn.executescript(KANBAN_SCHEMA)
+        conn.close()
+        hub = ProjectHub(self.root / "empty-registry.sqlite3", empty)
+        self.assertEqual(hub.portfolio()["projects"], [])
+        refreshed = hub.refresh()
+        self.assertEqual((refreshed["contract"], refreshed["projects"], refreshed["actions"]), ("project-hub-v1", [], []))
+
     def test_installable_project_hub_is_byte_identical_to_canonical(self) -> None:
         mvp = Path(__file__).resolve().parents[1]
         import backend.project_hub as development

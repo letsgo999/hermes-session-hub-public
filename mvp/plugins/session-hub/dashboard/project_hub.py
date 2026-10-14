@@ -402,8 +402,7 @@ class ProjectHub:
         if not project_ids:
             with self._connect() as conn:
                 project_ids = [row["id"] for row in conn.execute("SELECT id FROM projects ORDER BY updated_at DESC, id")]
-        if not project_ids:
-            raise ProjectHubError("registry_empty")
+        # No projects yet (empty Kanban, nothing configured) is a valid, empty portfolio — not an error.
         projects = [self._project_summary(project_id) for project_id in project_ids]
         with self._connect() as conn:
             links = [self._link_dict(row) for row in conn.execute("SELECT * FROM project_links ORDER BY project_id,source_id")]

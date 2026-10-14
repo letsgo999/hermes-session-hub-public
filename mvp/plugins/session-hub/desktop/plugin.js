@@ -656,7 +656,7 @@ function AISessionCard({ item }) {
 function AISessionPanel({ queryText, setQueryText, aiSource, setAiSource, includeArchive, setIncludeArchive, resetPaging, collectedAt, sources }) {
   const collected = collectedAt ? formatActivity(collectedAt).text : '아직 수집 전'
   const statusText = Object.entries(sources || {}).map(([name, info]) =>
-    `${AI_SOURCE_LABELS[name] || name} ${info && info.ok ? `${info.count}건` : `확인 불가${info && info.error ? `(${info.error})` : ''}`}`
+    `${AI_SOURCE_LABELS[name] || name} ${info && info.ok ? `${info.count}건` : /_missing$/.test(info?.error || '') ? '없음(이 PC에 기록 없음)' : `확인 불가${info && info.error ? `(${info.error})` : ''}`}`
   ).join(' · ')
   return jsxs('div', {
     className: 'grid gap-2 border-b border-(--ui-stroke-secondary) px-4 py-2 text-xs text-(--ui-text-secondary)',

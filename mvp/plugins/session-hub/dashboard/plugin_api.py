@@ -588,9 +588,11 @@ def projects() -> JSONResponse:
     try:
         hub = _project_hub()
         try:
-            return _json(hub.portfolio())
+            portfolio = hub.portfolio()
         except ProjectHubError:
             return _json(hub.refresh())
+        # First open on a new install: the registry is still empty, so derive projects once.
+        return _json(portfolio if portfolio.get("projects") else hub.refresh())
     except ProjectHubError as exc:
         return _json({"ok": False, "error": str(exc)}, 400)
 

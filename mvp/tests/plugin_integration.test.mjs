@@ -190,7 +190,7 @@ test('codex·claude tab lists recent AI sessions with title, status and conclusi
   assert.match(harness.text(), /코덱스 · 폴더 2026-01-05\/sample-task · gpt-5/)
   assert.match(harness.text(), /요청: 빌드가 계속 실패해/)
   assert.match(harness.text(), /원인을 찾아 고쳤습니다\./)
-  assert.match(harness.text(), /마지막 수집 .* · 30분마다 자동 갱신 · 코덱스 1건 · 클로드 데스크톱 확인 불가\(claude_desktop_missing\)/)
+  assert.match(harness.text(), /마지막 수집 .* · 30분마다 자동 갱신 · 코덱스 1건 · 클로드 데스크톱 없음\(이 PC에 기록 없음\)/)
   assert.equal(harness.findAll(node => node.props?.['data-ai-session-conclusion']).length, 1)
   assert.ok(byLabel(harness, 'Search AI sessions'))
   assert.ok(byLabel(harness, 'Refresh AI sessions'))
