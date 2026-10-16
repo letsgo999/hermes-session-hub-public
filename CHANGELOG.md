@@ -13,6 +13,9 @@
 - Kanban cards and Project Hub refresh tolerate text timestamps (numeric strings, ISO-8601 — Hermes 0.22
   accepts these from outside writers) instead of failing the whole board; a card's latest run is chosen by
   parsed time, not SQLite's int-before-text ordering.
+- Compatibility metadata: 0.21.7 is the measured 0.21.x baseline, verified on 0.22.1 and 0.22.2 (schema 31);
+  the official persisted-session list is recorded as available but not equivalent to Session Hub's
+  cross-profile message search and strict no-write proof (from the Office2025 compatibility review).
 
 ## 0.7.0 — 2026-10-14 (first public release)
 

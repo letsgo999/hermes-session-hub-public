@@ -1,6 +1,6 @@
 # Session Hub 0.7.1 — installable package
 
-Hermes Desktop 0.21.x plugin (verified on 0.21.7).
+Hermes Desktop 0.21.x and 0.22.x plugin (verified on 0.21.7; 0.22.1 and 0.22.2 checked against Hermes source).
 
 ## Install (Windows)
 

@@ -1,6 +1,6 @@
 # Hermes Session Hub
 
-[Hermes Agent](https://hermes-agent.nousresearch.com) Desktop(0.21.x·0.22.x, 0.21.7 실기, 0.22.1 소스 기준 검증)용 플러그인입니다. 이 PC의 Hermes 세션·Kanban 카드·스킬, 그리고 코덱스·클로드 작업 기록을 한 화면에서 **읽기 전용으로** 찾고 바로 엽니다.
+[Hermes Agent](https://hermes-agent.nousresearch.com) Desktop 0.21.x·0.22.x용 플러그인입니다(0.21.7 실기, 0.22.1·0.22.2 소스 기준 검증). 이 PC의 Hermes 세션·Kanban 카드·스킬, 그리고 코덱스·클로드 작업 기록을 한 화면에서 **읽기 전용으로** 찾고 바로 엽니다.
 
 > English summary below.
 

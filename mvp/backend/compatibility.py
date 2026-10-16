@@ -8,12 +8,14 @@ from typing import Any
 def generate_compatibility_matrix() -> dict[str, Any]:
     return {
         "contract": "hermes-session-hub-compat-v2",
-        "hermesDesktopVersion": "0.21.0",
-        "supportedSchemaVersions": [26, 27, 28, 29, 30],
-        "liveSchemaVersion": 30,
+        "hermesDesktopVersion": "0.22.2",
+        "baselineHermesDesktopVersion": "0.21.7",
+        "verifiedHermesDesktopVersions": ["0.21.7", "0.22.1", "0.22.2"],
+        "supportedSchemaVersions": [26, 27, 28, 29, 30, 31],
+        "liveSchemaVersion": 31,
         "pluginSdk": "plain-esm-desktop-plugin",
         "selectedDataPath": "strict_ro_fallback",
-        "fallbackReason": "Hermes 0.21.0 schema 30 is feature-detected by required columns; official RPC still lacks the strict no-write/search/messages contract required by this MVP.",
+        "fallbackReason": "Hermes 0.21.7, 0.22.1 and 0.22.2 all use state.db schema 31; required columns are feature-detected. The official persisted-session list does not provide the bounded cross-profile message search/previews and strict SQLite no-write proof required by this MVP.",
         "capabilities": {
             "routePage": "pass",
             "sidebarNav": "pass",
@@ -21,7 +23,7 @@ def generate_compatibility_matrix() -> dict[str, Any]:
             "openSessionInPlace": "pass",
             "profileAwareRequest": "pass",
             "reactQueryRefresh": "pass",
-            "sessionRpcList": "insufficient",
+            "sessionRpcList": "available_not_equivalent",
             "sessionRpcSearchMessages": "insufficient",
             "strictNoWriteRpc": "insufficient",
         },

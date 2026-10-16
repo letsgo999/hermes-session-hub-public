@@ -57,12 +57,15 @@ class OpsFixture(unittest.TestCase):
 
     def test_compatibility_matrix_selects_strict_ro_fallback(self) -> None:
         matrix = generate_compatibility_matrix()
-        self.assertEqual(matrix["hermesDesktopVersion"], "0.21.0")
-        self.assertEqual(matrix["supportedSchemaVersions"], [26, 27, 28, 29, 30])
-        self.assertEqual(matrix["liveSchemaVersion"], 30)
+        self.assertEqual(matrix["hermesDesktopVersion"], "0.22.2")
+        self.assertEqual(matrix["baselineHermesDesktopVersion"], "0.21.7")
+        self.assertEqual(matrix["verifiedHermesDesktopVersions"], ["0.21.7", "0.22.1", "0.22.2"])
+        self.assertEqual(matrix["supportedSchemaVersions"], [26, 27, 28, 29, 30, 31])
+        self.assertEqual(matrix["liveSchemaVersion"], 31)
         self.assertEqual(matrix["selectedDataPath"], "strict_ro_fallback")
         self.assertIn("feature-detected", matrix["fallbackReason"])
         self.assertEqual(matrix["capabilities"]["routePage"], "pass")
+        self.assertEqual(matrix["capabilities"]["sessionRpcList"], "available_not_equivalent")
         self.assertEqual(matrix["capabilities"]["sessionRpcSearchMessages"], "insufficient")
 
     def test_api_health_and_sessions_are_sanitized(self) -> None:
