@@ -192,6 +192,26 @@ class KanbanHubBackendFixture(unittest.TestCase):
         narrowed = {card["id"] for card in self.backend.list_cards(query="", assignees=["builder"], page_size=100, date_from=None)["items"]}
         self.assertNotIn("t_extra_0", narrowed)
 
+    def test_text_timestamps_from_outside_writers_do_not_break_the_board(self) -> None:
+        # Hermes 0.22 accepts numeric-text / ISO-8601 stamps written by outside tools (kanban_db._to_epoch).
+        odd = Path(self.tmp.name) / "odd.db"
+        create_board(odd, [
+            ("t_iso", "ISO stamps", "x", "default", "done", 1, "worker", "2026-10-15T00:00:00Z", "1792022500.5", "garbage", None, None, "done", None, None, None, None, None),
+            ("t_num", "Numeric text", "x", "default", "ready", 1, "worker", " 1792022400 ", None, None, "", None, None, None, None, None, None, None),
+        ], runs=[(3, "t_iso", "ops", "done", "2026-10-15T00:01:40+00:00", "", None),
+                 (2, "t_iso", "ops", "done", 1792000000, None, None)])  # older int run sorts first in SQL
+        backend = self.module.KanbanHubBackend({"odd": odd}, self.profile_paths)
+        result = backend.list_cards(query="", page_size=20, date_from=None)
+        cards = {card["id"]: card for card in result["items"]}
+        self.assertEqual(set(cards), {"t_iso", "t_num"})
+        self.assertEqual(cards["t_iso"]["createdAt"], 1792022400)
+        self.assertEqual(cards["t_iso"]["startedAt"], 1792022500)
+        self.assertIsNone(cards["t_iso"]["completedAt"])
+        self.assertEqual(cards["t_iso"]["latestRun"]["startedAt"], 1792022500)
+        self.assertIsNone(cards["t_iso"]["latestRun"]["endedAt"])
+        self.assertEqual(cards["t_num"]["createdAt"], 1792022400)
+        self.assertIsNone(cards["t_num"]["dueAt"])
+
     def test_badly_named_board_is_skipped_not_fatal(self) -> None:
         backend = self.module.KanbanHubBackend({**self.paths, "보드 이름": self.team}, self.profile_paths)
         result = backend.list_cards(query="", page_size=100, date_from=None)

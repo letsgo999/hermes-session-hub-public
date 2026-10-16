@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.1 — 2026-10-16 (Hermes 0.22 compatibility)
+
+- Skills search/refresh and the 코덱스·클로드 Refresh button work again on Hermes 0.22. Hermes 0.22 serves
+  Desktop's API from the gateway process and authenticates it with a one-request owner ticket; when
+  `dashboard.public_url` is set, that listener reports `auth_required: true`, so 0.7.0's local-Desktop check
+  returned 403 `local_desktop_required`. The check now also accepts Hermes' verified native owner
+  (`request.state.native_http_principal`, loopback socket peer). Remote dashboard users stay blocked.
+- `plugins.isolation: host` (new in 0.22) now gets an explicit `plugin_host_isolation` error instead of the
+  generic 403. The Skills tab and the 코덱스·클로드 Refresh button explain both refusals in Korean.
+- Skills index scans every profile folder in auto mode, including profiles without a `state.db` yet.
+- Kanban cards and Project Hub refresh tolerate text timestamps (numeric strings, ISO-8601 — Hermes 0.22
+  accepts these from outside writers) instead of failing the whole board; a card's latest run is chosen by
+  parsed time, not SQLite's int-before-text ordering.
+
 ## 0.7.0 — 2026-10-14 (first public release)
 
 - Profiles are auto-detected (`default` + every `profiles/<name>/state.db`) instead of a fixed list;

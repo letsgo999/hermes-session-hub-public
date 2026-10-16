@@ -1,4 +1,4 @@
-# Session Hub 0.7.0 — installable package
+# Session Hub 0.7.1 — installable package
 
 Hermes Desktop 0.21.x plugin (verified on 0.21.7).
 

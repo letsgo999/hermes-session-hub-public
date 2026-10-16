@@ -314,7 +314,9 @@ const BACKEND_ERROR_HINTS = {
   stale_schema: 'Hermes state.db schema_version is outside the range this plugin accepts. Update sessionhub_backend.py (MIN/MAX_SCHEMA_VERSION).',
   unexpected_schema: 'Hermes state.db is missing columns this plugin needs (sessions/messages). Check the Hermes update notes.',
   readonly_not_enforced: 'Read-only guard could not be enforced on state.db.',
-  kanban_schema_unsupported: 'Kanban DB schema is not supported by this plugin version.'
+  kanban_schema_unsupported: 'Kanban DB schema is not supported by this plugin version.',
+  local_desktop_required: '이 기능(스킬 검색, 코덱스·클로드 새로고침)은 이 PC의 Hermes Desktop에서만 열립니다. 원격 대시보드(브라우저)에서는 쓸 수 없습니다. Desktop인데도 보이면 Hermes를 재시작한 뒤 다시 시도하세요.',
+  plugin_host_isolation: 'config.yaml의 plugins.isolation이 host로 되어 있어 이 PC 요청인지 확인할 수 없습니다. 스킬 검색·코덱스·클로드 새로고침을 쓰려면 plugins.isolation을 in_process(기본값)로 두고 Hermes를 재시작하세요.'
 }
 
 function describeBackendError(error) {
@@ -1172,6 +1174,7 @@ export function SessionHubPage({ ctx }) {
   const [kanbanStatuses, setKanbanStatuses] = useState([])
   const [aiSource, setAiSource] = useState('all')
   const [aiRefreshing, setAiRefreshing] = useState(false)
+  const [aiRefreshError, setAiRefreshError] = useState('')
   const [pageSize, setPageSize] = useState(() => getInitialPageSize(ctx.storage))
   const [cursor, setCursor] = useState(null)
   const [cursorHistory, setCursorHistory] = useState([])
@@ -1280,10 +1283,13 @@ export function SessionHubPage({ ctx }) {
 
   const refreshAiSessions = async () => {
     setAiRefreshing(true)
+    setAiRefreshError('')
     try {
       await backend.refreshAiSessions()
-    } catch (_error) {
-      // Collection failures still fall back to the last cached list.
+    } catch (error) {
+      // Collection failures still fall back to the last cached list; explain gate refusals.
+      const described = describeBackendError(error)
+      setAiRefreshError(/local_desktop_required|plugin_host_isolation/.test(described.headline) ? `새로고침 실패: ${described.detail}` : '')
     } finally {
       await query.refetch()
       setAiRefreshing(false)
@@ -1413,6 +1419,9 @@ export function SessionHubPage({ ctx }) {
                 onClick: () => (tab === 'external-ai' ? refreshAiSessions() : query.refetch()),
                 children: query.isFetching || aiRefreshing ? 'Refreshing…' : 'Refresh'
               }),
+              tab === 'external-ai' && aiRefreshError ? jsx('p', {
+                role: 'status', className: 'basis-full text-xs text-(--ui-text-secondary)', children: aiRefreshError
+              }) : null,
               jsx('span', {
                 'aria-live': 'polite', className: 'sr-only',
                 children: query.isFetching ? `Refreshing ${tab === 'kanban' ? 'Kanban cards' : tab === 'external-ai' ? 'AI sessions' : 'sessions'}` : `${tab === 'kanban' ? 'Kanban card' : tab === 'external-ai' ? 'AI session' : 'Session'} list ready`

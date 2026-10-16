@@ -6,7 +6,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -353,7 +353,9 @@ def _skills_index() -> Any:
             _SKILLS_INDEX_CACHE = SkillsIndex(
                 hermes_home=settings.hermes_home,
                 canonical_root=settings.skills_root,
-                profiles=_backend_module.LOCAL_PROFILE_NAMES,
+                # Auto mode scans skills in every profile folder, including profiles that have no
+                # state.db yet; an explicit profiles list in the settings file still wins.
+                profiles=_backend_module.LOCAL_PROFILE_NAMES if settings.profiles_mode == "explicit" else None,
             )
         else:
             home, canonical, archives = _TEST_SKILLS_CONFIG
@@ -365,26 +367,68 @@ def _skills_index() -> Any:
     return _SKILLS_INDEX_CACHE
 
 
-def _is_local_desktop_request(request: Request) -> bool:
-    """Use the dashboard's resolved auth boundary, never caller-supplied headers."""
+def _is_loopback_host(value: Any) -> bool:
+    host = str(value or "").strip().strip("[]").casefold()
+    if not host:
+        return False
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host == "localhost"
+
+
+def _native_owner_request(request: Request) -> bool:
+    """Hermes 0.22+: Desktop calls the gateway-hosted API with a one-request owner ticket.
+
+    Hermes redeems that ticket itself (``x-hermes-gateway-ticket``, minted on the owner-only
+    control socket) and stamps ``request.state.native_http_principal`` only for a loopback socket
+    peer with no Origin header. The listener may still report ``auth_required`` True when
+    ``dashboard.public_url`` names a public host, so this verified principal, not the gate flag,
+    is the local-owner signal there. The socket peer is re-checked as defence in depth.
+    """
+    grant = getattr(request.state, "native_http_principal", None)
+    if not isinstance(grant, Mapping) or not grant:
+        return False
+    peer = request.scope.get("hermes.gateway_socket_peer")
+    if not peer or not _is_loopback_host(peer[0]):
+        return False
+    return _is_loopback_host(getattr(request.app.state, "bound_host", ""))
+
+
+def _legacy_loopback_request(request: Request) -> bool:
+    """Hermes 0.21 (and Desktop-spawned backends): ungated loopback bind + loopback client."""
     if getattr(request.app.state, "auth_required", None) is not False:
         return False
-    bound_host = str(getattr(request.app.state, "bound_host", "") or "").strip().casefold()
-    if not bound_host:
+    if not _is_loopback_host(getattr(request.app.state, "bound_host", "")):
         return False
-    try:
-        if not ipaddress.ip_address(bound_host).is_loopback:
-            return False
-    except ValueError:
-        if bound_host != "localhost":
-            return False
     client = request.client
-    if client is None:
-        return False
-    try:
-        return ipaddress.ip_address(client.host).is_loopback
-    except ValueError:
-        return False
+    return client is not None and _is_loopback_host(client.host)
+
+
+def _is_plugin_host_request(request: Request) -> bool:
+    """``plugins.isolation: host`` replays the request into a bare app in a child process."""
+    state = request.app.state
+    return (request.url.hostname == "plugin-host"
+            and getattr(state, "bound_host", None) is None
+            and getattr(state, "auth_required", None) is None)
+
+
+def _local_desktop_denial(request: Request) -> Optional[str]:
+    """None for this PC's own Desktop, else the error code. Never trusts caller-supplied headers."""
+    if _native_owner_request(request) or _legacy_loopback_request(request):
+        return None
+    if _is_plugin_host_request(request):
+        return "plugin_host_isolation"
+    return "local_desktop_required"
+
+
+def _is_local_desktop_request(request: Request) -> bool:
+    return _local_desktop_denial(request) is None
+
+
+def _local_desktop_error(request: Request) -> Optional[JSONResponse]:
+    code = _local_desktop_denial(request)
+    return None if code is None else _json({"ok": False, "error": code}, 403)
 
 
 def _skills_payload(body: Mapping[str, Any]) -> tuple[str, bool]:
@@ -520,8 +564,9 @@ def ai_sessions(body: dict[str, Any]) -> JSONResponse:
 
 @router.post("/ai-sessions/refresh")
 def ai_sessions_refresh(request: Request, body: dict[str, Any]) -> JSONResponse:
-    if not _is_local_desktop_request(request):
-        return _json({"ok": False, "error": "local_desktop_required"}, 403)
+    denied = _local_desktop_error(request)
+    if denied is not None:
+        return denied
     try:
         cache_path, sources = _ai_sessions_paths()
         result = _ai_sessions_module.collect(cache_path, sources)
@@ -534,8 +579,9 @@ def ai_sessions_refresh(request: Request, body: dict[str, Any]) -> JSONResponse:
 
 @router.post("/skills/search")
 def skills_search(request: Request, body: dict[str, Any]) -> JSONResponse:
-    if not _is_local_desktop_request(request):
-        return _json({"ok": False, "error": "local_desktop_required"}, 403)
+    denied = _local_desktop_error(request)
+    if denied is not None:
+        return denied
     try:
         query, include_archive = _skills_payload(body or {})
         return _json(_skills_index().search(query, include_archive=include_archive))
@@ -545,8 +591,9 @@ def skills_search(request: Request, body: dict[str, Any]) -> JSONResponse:
 
 @router.post("/skills/refresh")
 def skills_refresh(request: Request, body: dict[str, Any]) -> JSONResponse:
-    if not _is_local_desktop_request(request):
-        return _json({"ok": False, "error": "local_desktop_required"}, 403)
+    denied = _local_desktop_error(request)
+    if denied is not None:
+        return denied
     try:
         query, include_archive = _skills_payload(body or {})
         return _json(_skills_index().refresh(query, include_archive=include_archive))

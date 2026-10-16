@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import contextlib
+import math
+from datetime import datetime
 import hashlib
 import json
 import sqlite3
@@ -54,11 +56,33 @@ def _workspace_folder(path: str) -> str:
     return parts[-1] if parts else ""
 
 
+def _epoch(value: Any) -> int | None:
+    """Kanban timestamp as epoch seconds; None for empty/unparseable. Hermes 0.22 lets outside writers
+    store text stamps, so one odd card must not fail the whole board. Like Hermes' kanban_db._to_epoch:
+    int/float, integer text, then ISO-8601 (a stamp without a zone is local time, as in Hermes).
+    Also accepts decimal text (e.g. "1792022500.5"), which SQLite may hand back for an INTEGER column."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value) if math.isfinite(value) and abs(value) < 1e13 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        number = float(text)
+    except ValueError:
+        try:
+            return int(datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp())
+        except (ValueError, OSError, OverflowError):
+            return None
+    return int(number) if math.isfinite(number) and abs(number) < 1e13 else None
+
+
 def derive_projects(tasks: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
     """One project per distinct task project_id / workspace folder, most recently active first."""
     latest: dict[str, tuple[int, str]] = {}
     for task in tasks:
-        stamp = int(task.get("created_at") or 0)
+        stamp = _epoch(task.get("created_at")) or 0
         for name in (str(task.get("project_id") or "").strip(), _workspace_folder(str(task.get("workspace_path") or ""))):
             project_id = _slug(name)
             if not name or not project_id or not _PROJECT_ID_RE.fullmatch(project_id):
@@ -311,6 +335,10 @@ class ProjectHub:
             ]
             select = [name if name in columns else f"NULL AS {name}" for name in wanted]
             tasks = [dict(row) for row in conn.execute(f"SELECT {','.join(select)} FROM tasks ORDER BY created_at,id")]
+            for task in tasks:  # outside writers may store text stamps (Hermes 0.22 accepts them)
+                task["created_at"] = _epoch(task.get("created_at")) or 0
+                task["started_at"] = _epoch(task.get("started_at"))
+                task["completed_at"] = _epoch(task.get("completed_at"))
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             edges: list[tuple[str, str]] = []
             if "task_links" in tables:

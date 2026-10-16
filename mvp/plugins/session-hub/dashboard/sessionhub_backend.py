@@ -189,6 +189,34 @@ def _parse_iso8601(value: Any) -> int | None:
     return int(parsed.timestamp())
 
 
+def _epoch(value: Any) -> int | None:
+    """Kanban timestamp as epoch seconds; None for empty/unparseable. Hermes 0.22 lets outside writers
+    store text stamps, so one odd card must not fail the whole board. Like Hermes' kanban_db._to_epoch:
+    int/float, integer text, then ISO-8601 (a stamp without a zone is local time, as in Hermes).
+    Also accepts decimal text (e.g. "1792022500.5"), which SQLite may hand back for an INTEGER column."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value) if math.isfinite(value) and abs(value) < 1e13 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        number = float(text)
+    except ValueError:
+        try:
+            return int(datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp())
+        except (ValueError, OSError, OverflowError):
+            return None
+    return int(number) if math.isfinite(number) and abs(number) < 1e13 else None
+
+
+def _run_order(run: Any) -> tuple[int, int]:
+    if run is None:
+        return (-1, -1)
+    return (_epoch(run["started_at"]) or 0, int(run["id"]))
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -1483,9 +1511,12 @@ class KanbanHubBackend:
                         "FROM task_runs ORDER BY started_at,id"
                     ):
                         run_by_id[int(run["id"])] = run
-                        latest_by_task[str(run["task_id"])] = run
-                        if run["status"] == "running":
-                            latest_running[str(run["task_id"])] = run
+                        # SQLite sorts every integer before any text, so pick "latest" by parsed time.
+                        key = str(run["task_id"])
+                        if _run_order(run) >= _run_order(latest_by_task.get(key)):
+                            latest_by_task[key] = run
+                        if run["status"] == "running" and _run_order(run) >= _run_order(latest_running.get(key)):
+                            latest_running[key] = run
 
         cards: list[dict[str, Any]] = []
         board_instance = self.board_instance(board)
@@ -1502,8 +1533,8 @@ class KanbanHubBackend:
             else:
                 owner_profile = assignee or None
             updated_at = max(
-                int(row["created_at"] or 0), int(row["started_at"] or 0),
-                int(row["completed_at"] or 0), int(row["last_heartbeat_at"] or 0),
+                _epoch(row["created_at"]) or 0, _epoch(row["started_at"]) or 0,
+                _epoch(row["completed_at"]) or 0, _epoch(row["last_heartbeat_at"]) or 0,
             )
             current_run = None
             run = None
@@ -1516,7 +1547,7 @@ class KanbanHubBackend:
             if run is not None:
                 current_run = {
                     "id": int(run["id"]), "profile": run["profile"],
-                    "status": run["status"], "startedAt": int(run["started_at"]),
+                    "status": run["status"], "startedAt": _epoch(run["started_at"]) or 0,
                 }
                 updated_at = max(updated_at, current_run["startedAt"])
             session_id = str(row["session_id"] or "")
@@ -1534,11 +1565,11 @@ class KanbanHubBackend:
                 "status": str(row["status"] or "unknown"), "assignee": assignee or None,
                 "ownerProfile": owner_profile, "priority": int(row["priority"] or 0),
                 "createdBy": redact_text(str(row["created_by"] or ""), limit=80) or None,
-                "createdAt": int(row["created_at"] or 0),
-                "startedAt": int(row["started_at"]) if row["started_at"] is not None else None,
-                "completedAt": int(row["completed_at"]) if row["completed_at"] is not None else None,
+                "createdAt": _epoch(row["created_at"]) or 0,
+                "startedAt": _epoch(row["started_at"]),
+                "completedAt": _epoch(row["completed_at"]),
                 "updatedAt": updated_at,
-                "dueAt": int(row["due_at"]) if row["due_at"] is not None else None,
+                "dueAt": _epoch(row["due_at"]),
                 "projectId": str(row["project_id"]) if row["project_id"] else None,
                 "parentIds": parents.get(task_id, []), "childIds": children.get(task_id, []),
                 "currentRun": current_run, "latestRun": latest_run,
@@ -1560,8 +1591,8 @@ class KanbanHubBackend:
             "id": int(run["id"]),
             "profile": str(run["profile"]) if run["profile"] else None,
             "status": str(run["status"]),
-            "startedAt": int(run["started_at"]),
-            "endedAt": int(run["ended_at"]) if run["ended_at"] is not None else None,
+            "startedAt": _epoch(run["started_at"]) or 0,
+            "endedAt": _epoch(run["ended_at"]),
             "outcome": str(run["outcome"]) if run["outcome"] else None,
             "summary": redact_text(str(run["summary"] or ""), limit=500) or None,
         }

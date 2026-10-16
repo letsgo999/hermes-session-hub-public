@@ -135,6 +135,22 @@ class ProjectHubFixture(unittest.TestCase):
         self.assertEqual(hub.portfolio()["contract"], "project-hub-v1")
         self.assertEqual(derive_projects([{"project_id": "../", "workspace_path": "C:\\"}]), ())
 
+    def test_text_timestamps_do_not_break_project_refresh(self) -> None:
+        odd = self.root / "odd-kanban.db"
+        conn = sqlite3.connect(odd)
+        conn.executescript(KANBAN_SCHEMA)
+        conn.executemany("INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", [
+            ("t_a", "Delta one", "x", "default", "done", 1, "2026-10-15T00:00:00Z", "garbage", None, str(self.root / "Delta"), None, None, None),
+            ("t_b", "Delta two", "x", "default", "ready", 1, 1792000000, None, None, str(self.root / "Delta"), None, None, None),
+        ])
+        conn.execute("INSERT INTO task_links(parent_id,child_id) VALUES (?,?)", ("t_a", "t_b"))
+        conn.commit()
+        conn.close()
+        hub = ProjectHub(self.root / "odd-registry.sqlite3", odd)
+        refreshed = hub.refresh()
+        self.assertEqual([p["id"] for p in refreshed["projects"]], ["delta"])
+        self.assertEqual(derive_projects([{"project_id": "x1", "created_at": "1792022400.5"}])[0]["id"], "x1")
+
     def test_empty_kanban_gives_an_empty_portfolio_not_an_error(self) -> None:
         empty = self.root / "empty-kanban.db"
         conn = sqlite3.connect(empty)

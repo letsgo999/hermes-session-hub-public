@@ -6,6 +6,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from typing import Any
 from pathlib import Path
 
 import httpx
@@ -243,6 +244,65 @@ class UnifiedPackageFixture(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(public_bind.status_code, 403)
         self.assertNotIn(str(self.hermes_home.resolve()), public_bind.text)
 
+        # Hermes 0.22 gateway-hosted listener: auth_required may be True (dashboard.public_url set),
+        # but a Desktop request carries a native owner ticket that Hermes redeems into
+        # request.state.native_http_principal, and the raw socket peer is kept in the scope.
+        def gateway_app(principal: Any, peer: Any, bound_host: Any = "127.0.0.1") -> FastAPI:
+            app = FastAPI()
+            app.state.auth_required = True
+            if bound_host is not None:
+                app.state.bound_host = bound_host
+
+            @app.middleware("http")
+            async def stamp_native(request: Any, call_next: Any) -> Any:
+                if peer is not None:
+                    request.scope["hermes.gateway_socket_peer"] = peer
+                if principal is not None:
+                    request.state.native_http_principal = principal
+                return await call_next(request)
+
+            app.include_router(module.router, prefix="/api/plugins/session-hub")
+            return app
+
+        grant = {"profile_id": "default", "purpose": "interactive", "subject": "owner"}
+        cases = [
+            (grant, ("127.0.0.1", 50000), 200, None),
+            (grant, ("::1", 50000, 0, 0), 200, None),
+            (None, ("127.0.0.1", 50000), 403, "local_desktop_required"),
+            (grant, None, 403, "local_desktop_required"),
+            (grant, ("203.0.113.9", 50000), 403, "local_desktop_required"),
+            ("forged", ("127.0.0.1", 50000), 403, "local_desktop_required"),
+        ]
+        cases += [
+            (grant, ("127.0.0.1", 50000), 403, "local_desktop_required", "0.0.0.0"),
+            (grant, ("127.0.0.1", 50000), 403, "local_desktop_required", None),
+        ]
+        for principal, peer, expected_status, expected_error, *bound in cases:
+            app = gateway_app(principal, peer, *bound)
+            transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 12345))
+            async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as client:
+                response = await client.post("/api/plugins/session-hub/skills/search", json={"query": "fixture"})
+            self.assertEqual(response.status_code, expected_status, (principal, peer))
+            if expected_error:
+                self.assertEqual(response.json()["error"], expected_error)
+                self.assertNotIn(str(self.hermes_home.resolve()), response.text)
+
+        # plugins.isolation: host replays the request into a bare app; the plugin cannot verify the
+        # caller there, so it stays closed but says why.
+        hosted_app = FastAPI()
+        hosted_app.include_router(module.router)
+        hosted_transport = httpx.ASGITransport(app=hosted_app)
+        async with httpx.AsyncClient(transport=hosted_transport, base_url="http://plugin-host") as client:
+            hosted = await client.post("/skills/search", json={"query": "fixture"})
+        self.assertEqual((hosted.status_code, hosted.json()["error"]), (403, "plugin_host_isolation"))
+        self.assertNotIn(str(self.hermes_home.resolve()), hosted.text)
+
+        # A spoofed "plugin-host" Host on the real in-process app only changes nothing: still the generic refusal.
+        spoof_transport = httpx.ASGITransport(app=gateway_app(None, ("127.0.0.1", 50000)), client=("127.0.0.1", 12345))
+        async with httpx.AsyncClient(transport=spoof_transport, base_url="http://plugin-host") as client:
+            spoofed = await client.post("/api/plugins/session-hub/skills/search", json={"query": "fixture"})
+        self.assertEqual((spoofed.status_code, spoofed.json()["error"]), (403, "local_desktop_required"))
+
 
 
 class AISessionsApiFixture(unittest.IsolatedAsyncioTestCase):
@@ -285,6 +345,22 @@ class AISessionsApiFixture(unittest.IsolatedAsyncioTestCase):
                 async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
                     refreshed = await client.post("/api/plugins/session-hub/ai-sessions/refresh", json={})
                 self.assertEqual(refreshed.status_code, 200)
+
+                native_app = FastAPI()
+                native_app.state.auth_required = True
+                native_app.state.bound_host = "127.0.0.1"
+
+                @native_app.middleware("http")
+                async def stamp_native(request: Any, call_next: Any) -> Any:
+                    request.scope["hermes.gateway_socket_peer"] = ("127.0.0.1", 50000)
+                    request.state.native_http_principal = {"profile_id": "default", "purpose": "native-http"}
+                    return await call_next(request)
+
+                native_app.include_router(module.router, prefix="/api/plugins/session-hub")
+                native_transport = httpx.ASGITransport(app=native_app, client=("127.0.0.1", 12345))
+                async with httpx.AsyncClient(transport=native_transport, base_url="http://127.0.0.1") as client:
+                    native_refresh = await client.post("/api/plugins/session-hub/ai-sessions/refresh", json={})
+                self.assertEqual(native_refresh.status_code, 200)
                 self.assertEqual(refreshed.json()["sources"]["codex"]["error"], "codex_state_missing")
             finally:
                 module.configure_ai_sessions_for_tests(None)

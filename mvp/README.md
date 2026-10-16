@@ -1,6 +1,6 @@
 # Session Hub — 개발자 문서
 
-Hermes Desktop 0.21.x용 unified plugin입니다(0.21.7에서 검증, 버전 0.7.0). 프로젝트 포트폴리오·오늘의 실행목록·논리 작업·정확한 원본 세션/Kanban 상세를 한 화면에 제공합니다. 설치는 저장소 루트 `README.md`(install.ps1)를 따릅니다.
+Hermes Desktop 0.21.x·0.22.x용 unified plugin입니다(0.21.7 실기, 0.22.1 소스 기준 검증, 버전 0.7.1). 프로젝트 포트폴리오·오늘의 실행목록·논리 작업·정확한 원본 세션/Kanban 상세를 한 화면에 제공합니다. 설치는 저장소 루트 `README.md`(install.ps1)를 따릅니다.
 
 ## 구조
 
